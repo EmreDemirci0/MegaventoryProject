@@ -1,143 +1,12 @@
-const axios = require("axios");
-const https = require("https");
+const MegaventoryAPI = require("./MegaventoryAPI");
+const SupplierClient = require("./SupplierClient");
+const Product = require("./Product");
+const InventoryLocation = require("./InventoryLocation");
+const ProductDeleter = require("./ProductDeleter");
 
-class MegaventoryAPI {
-  constructor(apiKey) {
-    this.apiKey = apiKey;
-    this.baseURL = "https://api.megaventory.com/v2017a";
-    this.axiosInstance = axios.create();
-    this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
-  }
-
-  async executeRequest(url, payload, successMessage, errorMessage) {
-    try {
-      const response = await this.axiosInstance.post(url, payload);
-      console.log(successMessage, response.data);
-    } catch (error) {
-      console.error(errorMessage, error.response.data);
-    }
-  }
-
-  async insertOrUpdateEntity(entityType, payload) {
-    const url = `${this.baseURL}/${entityType}/${entityType}Update`;
-    const successMessage = `New ${entityType} inserted/updated:`;
-    const errorMessage = `Error inserting/updating ${entityType}:`;
-    await this.executeRequest(url, payload, successMessage, errorMessage);
-  }
-
-  async deleteEntity(entityType, payload) {
-    const url = `${this.baseURL}/${entityType}/${entityType}Delete`;
-    const successMessage = `${entityType} deleted:`;
-    const errorMessage = `Error deleting ${entityType}:`;
-    await this.executeRequest(url, payload, successMessage, errorMessage);
-  }
-
-  async updateStockQuantity(productID) {
-    const options = {
-      hostname: "api.megaventory.com",
-      path: `/v2017a/Product/ProductGet?APIKEY=${this.apiKey}&format=json`,
-      method: "GET",
-      agent: this.httpsAgent,
-    };
-
-    const req = https.request(options, (res) => {
-      let data = "";
-
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-
-      res.on("end", () => {
-        const response = JSON.parse(data);
-        const products = response.mvProducts;
-        const targetProduct = products.find(
-          (product) => product.ProductID === productID
-        );
-        if (targetProduct) {
-          const updatePricingAndUnitCost = {
-            APIKEY: this.apiKey,
-            mvProduct: {
-              ProductID: targetProduct.ProductID,
-              ProductSKU: targetProduct.ProductSKU,
-              ProductDescription: targetProduct.ProductDescription,
-              ProductSellingPrice: "499.95",
-              ProductPurchasePrice: "214.95",
-            },
-            mvRecordAction: "Update",
-          };
-          this.insertOrUpdateEntity("Product", updatePricingAndUnitCost);
-          console.log("Successful");
-        } else {
-          console.log("Product not found.");
-        }
-      });
-    });
-
-    req.on("error", (error) => {
-      console.error("Error:", error);
-    });
-
-    req.end();
-  }
-}
-
-class SupplierClient {
-  constructor(apiKey, clientPayload) {
-    this.apiKey = apiKey;
-    this.payload = clientPayload;
-  }
-
-  async addOrUpdateClient() {
-    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
-    await megaventoryAPI.insertOrUpdateEntity("SupplierClient", this.payload);
-  }
-}
-
-class Product {
-  constructor(apiKey, productPayload) {
-    this.apiKey = apiKey;
-    this.payload = productPayload;
-  }
-
-  async addOrUpdateProduct() {
-    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
-    await megaventoryAPI.insertOrUpdateEntity("Product", this.payload);
-  }
-}
-
-class InventoryLocation {
-  constructor(apiKey, locationPayload) {
-    this.apiKey = apiKey;
-    this.payload = locationPayload;
-  }
-
-  async addOrUpdateLocation() {
-    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
-    await megaventoryAPI.insertOrUpdateEntity(
-      "InventoryLocation",
-      this.payload
-    );
-  }
-}
-
-class ProductDeleter {
-  constructor(apiKey, productIDToDelete) {
-    this.apiKey = apiKey;
-    this.payload = {
-      APIKEY: apiKey,
-      ProductIDToDelete: productIDToDelete,
-    };
-  }
-
-  async deleteProduct() {
-    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
-    await megaventoryAPI.deleteEntity("Product", this.payload);
-  }
-}
-
-// Kullanım örneği:
 const apiKey = "222e2a5e95b83ded@m140970";
-
+const megaventoryAPI = new MegaventoryAPI(apiKey);
+// Babis's Client Data
 const clientBabisPayload = {
   APIKEY: apiKey,
   mvSupplierClient: {
@@ -151,6 +20,7 @@ const clientBabisPayload = {
   mvRecordAction: "Insert",
 };
 
+// Odysseus's Supplier Data
 const supplierOdysseusPayload = {
   APIKEY: apiKey,
   mvSupplierClient: {
@@ -164,6 +34,7 @@ const supplierOdysseusPayload = {
   mvRecordAction: "Insert",
 };
 
+// Nike Product Data
 const productNikePayload = {
   APIKEY: apiKey,
   mvProduct: {
@@ -176,6 +47,7 @@ const productNikePayload = {
   mvRecordAction: "Insert",
 };
 
+// Adidas Product Data
 const productAdidasPayload = {
   APIKEY: apiKey,
   mvProduct: {
@@ -188,6 +60,7 @@ const productAdidasPayload = {
   mvRecordAction: "Insert",
 };
 
+// Inventory Location Data
 const inventoryLocationPayload = {
   APIKEY: apiKey,
   mvInventoryLocation: {
@@ -198,32 +71,29 @@ const inventoryLocationPayload = {
   mvRecordAction: "Insert",
 };
 
-const DeleteProductPayload = {
+// Delete Product Data
+const deleteProductPayload = {
   APIKEY: apiKey,
-  ProductIDToDelete: 0,
+  ProductIDToDelete: 00,
 };
+async function run() {
+  const clientBabis = new SupplierClient(apiKey, clientBabisPayload);
+  await clientBabis.addOrUpdateClient();
 
-const clientBabis = new SupplierClient(apiKey, clientBabisPayload);
-await clientBabis.addOrUpdateClient();
+  const supplierOdysseus = new SupplierClient(apiKey, supplierOdysseusPayload);
+  await supplierOdysseus.addOrUpdateClient();
 
-const supplierOdysseus = new SupplierClient(apiKey, supplierOdysseusPayload);
-await supplierOdysseus.addOrUpdateClient();
+  const nikeProduct = new Product(apiKey, productNikePayload);
+  await nikeProduct.addOrUpdateProduct();
 
-const productNike = new Product(apiKey, productNikePayload);
-await productNike.addOrUpdateProduct();
+  const adidasProduct = new Product(apiKey, productAdidasPayload);
+  await adidasProduct.addOrUpdateProduct();
 
-const productAdidas = new Product(apiKey, productAdidasPayload);
-await productAdidas.addOrUpdateProduct();
+  const location = new InventoryLocation(apiKey, inventoryLocationPayload);
+  await location.addOrUpdateLocation();
 
-const inventoryLocation = new InventoryLocation(apiKey, inventoryLocationPayload);
-await inventoryLocation.addOrUpdateLocation();
+  const productDeleter = new ProductDeleter(apiKey, deleteProductPayload.ProductIDToDelete);
+  await productDeleter.deleteProduct();
+}
 
-const productDeleter = new ProductDeleter(apiKey, DeleteProductPayload.ProductIDToDelete);
-await productDeleter.deleteProduct();
-
-const megaventoryAPI = new MegaventoryAPI(apiKey);
-await megaventoryAPI.updateStockQuantity(18);
-await megaventoryAPI.updateStockQuantity(19);
-await megaventoryAPI.updateStockQuantity(20);
-await megaventoryAPI.updateStockQuantity(21);
-await megaventoryAPI.updateStockQuantity(22);
+run().catch(console.error);
