@@ -1,88 +1,143 @@
 const axios = require("axios");
-const https= require("https");
+const https = require("https");
 
 class MegaventoryAPI {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this.baseURL = "https://api.megaventory.com/v2017a";
+    this.axiosInstance = axios.create();
+    this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
   }
-  //url : is the link to our API. payload: is the "Array" containing the data.SuccessMessage and Errormesage:results are our messages.
+
   async executeRequest(url, payload, successMessage, errorMessage) {
     try {
-      const response = await axios.post(url, payload);
+      const response = await this.axiosInstance.post(url, payload);
       console.log(successMessage, response.data);
     } catch (error) {
       console.error(errorMessage, error.response.data);
     }
   }
-  //Gets one of the values ​​entityType:"Product","SupplierClient","InventoryLocation".Payload: is the "Array" containing the data
+
   async insertOrUpdateEntity(entityType, payload) {
     const url = `${this.baseURL}/${entityType}/${entityType}Update`;
     const successMessage = `New ${entityType} inserted/updated:`;
     const errorMessage = `Error inserting/updating ${entityType}:`;
     await this.executeRequest(url, payload, successMessage, errorMessage);
   }
-  //Gets one of the values ​​entityType:"Product","SupplierClient","InventoryLocation".Payload: is the "Array" containing the data
+
   async deleteEntity(entityType, payload) {
     const url = `${this.baseURL}/${entityType}/${entityType}Delete`;
     const successMessage = `${entityType} deleted:`;
     const errorMessage = `Error deleting ${entityType}:`;
     await this.executeRequest(url, payload, successMessage, errorMessage);
   }
-  //ProductID:changes the Stock of the specified object
+
   async updateStockQuantity(productID) {
     const options = {
-      hostname: 'api.megaventory.com',
+      hostname: "api.megaventory.com",
       path: `/v2017a/Product/ProductGet?APIKEY=${this.apiKey}&format=json`,
-      method: 'GET'
+      method: "GET",
+      agent: this.httpsAgent,
     };
-    
+
     const req = https.request(options, (res) => {
-      let data = '';
-    
-      res.on('data', (chunk) => {
+      let data = "";
+
+      res.on("data", (chunk) => {
         data += chunk;
       });
-    
-      res.on('end', () => {
+
+      res.on("end", () => {
         const response = JSON.parse(data);
         const products = response.mvProducts;
-        const targetProduct = products.find(product => product.ProductID === productID);
+        const targetProduct = products.find(
+          (product) => product.ProductID === productID
+        );
         if (targetProduct) {
-          //
           const updatePricingAndUnitCost = {
             APIKEY: this.apiKey,
             mvProduct: {
               ProductID: targetProduct.ProductID,
               ProductSKU: targetProduct.ProductSKU,
               ProductDescription: targetProduct.ProductDescription,
-              ProductSellingPrice: "499.95",//99.99*5=499.95
-              ProductPurchasePrice: "214.95",//44.99*5=214.95
+              ProductSellingPrice: "499.95",
+              ProductPurchasePrice: "214.95",
             },
             mvRecordAction: "Update",
-          }
-          // const productPurchasePrice = targetProduct.ProductSKU;
-          // console.log('Product Purchase Price:', productPurchasePrice);
+          };
           this.insertOrUpdateEntity("Product", updatePricingAndUnitCost);
-          console.log('Successful');
+          console.log("Successful");
         } else {
-          console.log('Product not found.');
+          console.log("Product not found.");
         }
       });
     });
-    
-    req.on('error', (error) => {
-      console.error('Error:', error);
+
+    req.on("error", (error) => {
+      console.error("Error:", error);
     });
-    
+
     req.end();
   }
 }
-//We get the API key from www.megaventory.com/ and assign it to the variable
-const apiKey = "222e2a5e95b83ded@m140970";
-const megaventoryAPI = new MegaventoryAPI(apiKey);
 
-//Babis's Client Data
+class SupplierClient {
+  constructor(apiKey, clientPayload) {
+    this.apiKey = apiKey;
+    this.payload = clientPayload;
+  }
+
+  async addOrUpdateClient() {
+    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
+    await megaventoryAPI.insertOrUpdateEntity("SupplierClient", this.payload);
+  }
+}
+
+class Product {
+  constructor(apiKey, productPayload) {
+    this.apiKey = apiKey;
+    this.payload = productPayload;
+  }
+
+  async addOrUpdateProduct() {
+    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
+    await megaventoryAPI.insertOrUpdateEntity("Product", this.payload);
+  }
+}
+
+class InventoryLocation {
+  constructor(apiKey, locationPayload) {
+    this.apiKey = apiKey;
+    this.payload = locationPayload;
+  }
+
+  async addOrUpdateLocation() {
+    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
+    await megaventoryAPI.insertOrUpdateEntity(
+      "InventoryLocation",
+      this.payload
+    );
+  }
+}
+
+class ProductDeleter {
+  constructor(apiKey, productIDToDelete) {
+    this.apiKey = apiKey;
+    this.payload = {
+      APIKEY: apiKey,
+      ProductIDToDelete: productIDToDelete,
+    };
+  }
+
+  async deleteProduct() {
+    const megaventoryAPI = new MegaventoryAPI(this.apiKey);
+    await megaventoryAPI.deleteEntity("Product", this.payload);
+  }
+}
+
+// Kullanım örneği:
+const apiKey = "222e2a5e95b83ded@m140970";
+
 const clientBabisPayload = {
   APIKEY: apiKey,
   mvSupplierClient: {
@@ -96,7 +151,6 @@ const clientBabisPayload = {
   mvRecordAction: "Insert",
 };
 
-//Odysseus's Supplier Data
 const supplierOdysseusPayload = {
   APIKEY: apiKey,
   mvSupplierClient: {
@@ -110,7 +164,6 @@ const supplierOdysseusPayload = {
   mvRecordAction: "Insert",
 };
 
-//Nike Product Data's
 const productNikePayload = {
   APIKEY: apiKey,
   mvProduct: {
@@ -123,7 +176,6 @@ const productNikePayload = {
   mvRecordAction: "Insert",
 };
 
-//Adidas Product Data's
 const productAdidasPayload = {
   APIKEY: apiKey,
   mvProduct: {
@@ -136,7 +188,6 @@ const productAdidasPayload = {
   mvRecordAction: "Insert",
 };
 
-//Add data's to Inventory Location
 const inventoryLocationPayload = {
   APIKEY: apiKey,
   mvInventoryLocation: {
@@ -147,22 +198,32 @@ const inventoryLocationPayload = {
   mvRecordAction: "Insert",
 };
 
-//Delete With Product ID
-const DeleteProductPayload={
+const DeleteProductPayload = {
   APIKEY: apiKey,
-  ProductIDToDelete: 00,  
-}
+  ProductIDToDelete: 0,
+};
 
+const clientBabis = new SupplierClient(apiKey, clientBabisPayload);
+await clientBabis.addOrUpdateClient();
 
+const supplierOdysseus = new SupplierClient(apiKey, supplierOdysseusPayload);
+await supplierOdysseus.addOrUpdateClient();
 
-// megaventoryAPI.insertOrUpdateEntity("SupplierClient", clientBabisPayload);
-// megaventoryAPI.insertOrUpdateEntity("SupplierClient", supplierOdysseusPayload);
-// megaventoryAPI.insertOrUpdateEntity("Product", productNikePayload);
-// megaventoryAPI.insertOrUpdateEntity("Product", productAdidasPayload);
-// megaventoryAPI.insertOrUpdateEntity("InventoryLocation", inventoryLocationPayload);
-// deleteEntity("Product",payloadDeleteProduct)
-// megaventoryAPI.updateStockQuantity(18);
-// megaventoryAPI.updateStockQuantity(19);
-// megaventoryAPI.updateStockQuantity(20);
-// megaventoryAPI.updateStockQuantity(21);
-// megaventoryAPI.updateStockQuantity(22);
+const productNike = new Product(apiKey, productNikePayload);
+await productNike.addOrUpdateProduct();
+
+const productAdidas = new Product(apiKey, productAdidasPayload);
+await productAdidas.addOrUpdateProduct();
+
+const inventoryLocation = new InventoryLocation(apiKey, inventoryLocationPayload);
+await inventoryLocation.addOrUpdateLocation();
+
+const productDeleter = new ProductDeleter(apiKey, DeleteProductPayload.ProductIDToDelete);
+await productDeleter.deleteProduct();
+
+const megaventoryAPI = new MegaventoryAPI(apiKey);
+await megaventoryAPI.updateStockQuantity(18);
+await megaventoryAPI.updateStockQuantity(19);
+await megaventoryAPI.updateStockQuantity(20);
+await megaventoryAPI.updateStockQuantity(21);
+await megaventoryAPI.updateStockQuantity(22);
